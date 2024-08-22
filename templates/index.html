@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock Paper Scissors</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Rock Paper Scissors</h1>
+        <div id="register">
+            <input type="text" id="player1" placeholder="Enter Player 1 Name">
+            <input type="text" id="player2" placeholder="Enter Player 2 Name (leave blank for Computer)">
+            <button onclick="startGame()">Start Game</button>
+        </div>
+        <div id="game" style="display: none;">
+            <h2 id="status"></h2>
+            <div class="buttons">
+                <button id="rockBtn" onclick="playMove('rock')">Rock</button>
+                <button id="paperBtn" onclick="playMove('paper')">Paper</button>
+                <button id="scissorsBtn" onclick="playMove('scissors')">Scissors</button>
+            </div>
+            <div id="game-result"></div>
+            <h3>Scores</h3>
+            <p id="scores"></p>
+            <button onclick="saveGame()">Save Game</button>
+            <button onclick="loadGame()">Load Game</button>
+        </div>
+    </div>
+
+    <script>
+        let currentPlayer = 'player1';
+        let player2IsComputer = false;
+        let player1Move = null;
+        let player2Move = null;
+        let player1Score = 0;
+        let player2Score = 0;
+        let player1Name = '';
+        let player2Name = '';
+
+        // Function to start the game
+        function startGame() {
+            player1Name = document.getElementById('player1').value;
+            player2Name = document.getElementById('player2').value || "Computer";
+            
+            if (!player1Name && !player2Name) {
+                alert("Both player names cannot be empty!");
+                return;
+            }
+
+            document.getElementById('register').style.display = 'none';
+            document.getElementById('game').style.display = 'block';
+            updateGameStatus({ status: `${player1Name}'s turn!`, 
+                                scores: {'player1': 0,  'player2': 0}
+                            });
+            
+        }
+
+
+        function playMove(move) {
+            if (currentPlayer == 'player1') {
+                player1Move = move
+                if (player2Name == "Computer") {
+                    judgeGame({
+                        player1: player1Name,
+                        player2: player2Name,
+                        player1_move: player1Move,
+                        player2_move: player2Move,
+                        player1_score: player1Score,
+                        player2_score: player2Score
+                    });
+
+                }
+                else{
+                    currentPlayer = 'player2';
+                    updateGameStatus({ status: "Player 2's turn!" });
+                }
+                
+            }
+            else {
+                player2Move = move
+                judgeGame({
+                    player1: player1Name,
+                    player2: player2Name,
+                    player1_move: player1Move,
+                    player2_move: player2Move,
+                    player1_score: player1Score,
+                    player2_score: player2Score
+                });
+            }
+        
+        }
+
+        function judgeGame(data) {
+            
+            fetch('/play', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+
+                currentPlayer = currentPlayer === 'player1' ? 'player2' : 'player1';
+                data['status'] = `${currentPlayer}'s turn!`
+                updateGameStatus(data)
+                document.getElementById('game-result').innerText = data.result;
+            });
+        }
+
+        function saveGame() {
+
+            fetch('/save', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({player1_name: player1Name, 
+                                      player2_name: player2Name, 
+                                      player1_score: player1Score, 
+                                      player2_score: player2Score}),
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('game-result').innerText = data.message;
+            });
+        }
+
+        function loadGame() {
+
+            fetch('/load', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({player1_name: player1Name, 
+                                      player2_name: player2Name, 
+                                    }),
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('game-result').innerText = data.message;
+                if (data.scores!== undefined) {
+                    updateGameStatus(data)
+                }
+            });
+        }
+
+        function updateGameStatus(data) {
+            if ('status' in data) {
+                document.getElementById('status').textContent = data.status || 'Make your move!';
+            }
+            if ('scores' in data) {
+                document.getElementById('scores').textContent = `${player1Name}: ${data.scores.player1} - ${player2Name}: ${data.scores.player2}`;
+                player1Score = data.scores.player1;
+                player2Score = data.scores.player2;
+            }
+            
+        }
+
+        function resetGame() {
+            player1Move = null;
+            player2Move = null;
+            currentPlayer = 'player1';
+        }
+    // Reset the game on page load
+     window.onload = resetGame;
+    </script>
+</body>
+</html>
